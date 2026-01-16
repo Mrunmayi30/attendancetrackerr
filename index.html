@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Attendance Tracker – Teacher</title>
+
+<style>
+:root {
+    --bg-dark: #0d0d0d;
+    --card-dark: #161616;
+    --text: #eaeaea;
+    --green: #00c853;
+    --red: #ff5252;
+    --blue: #448aff;
+    --shadow: 0 8px 25px rgba(0,0,0,0.4);
+}
+
+body {
+    background: var(--bg-dark);
+    color: var(--text);
+    margin: 0;
+    font-family: "Segoe UI", sans-serif;
+}
+
+h2 {
+    text-align: center;
+    margin-top: 20px;
+    font-weight: 500;
+}
+
+/* TOTAL STUDENTS */
+#total-students {
+    text-align: center;
+    margin-top: 5px;
+    color: #ccc;
+    font-size: 16px;
+}
+
+/* ADD STUDENT */
+#add-container {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    padding: 20px;
+}
+#add-container input {
+    padding: 10px;
+    font-size: 16px;
+    width: 220px;
+    border-radius: 8px;
+    border: none;
+    outline: none;
+    background: #1e1e1e;
+    color: var(--text);
+}
+#add-container button {
+    padding: 10px 18px;
+    border: none;
+    border-radius: 8px;
+    background: var(--blue);
+    color: white;
+    cursor: pointer;
+}
+
+/* SEARCH BAR */
+#search-box {
+    display: flex;
+    justify-content: center;
+    padding: 10px 20px;
+}
+#search-box input {
+    width: 260px;
+    padding: 10px;
+    border-radius: 8px;
+    border: none;
+    outline: none;
+    background: #1e1e1e;
+    color: var(--text);
+    font-size: 16px;
+}
+
+/* CARDS */
+#cards-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+    padding: 20px;
+}
+
+.card {
+    background: var(--card-dark);
+    padding: 20px;
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    position: relative;
+}
+
+.menu-btn {
+    position: absolute;
+    top: 12px;
+    right: 15px;
+    font-size: 20px;
+    cursor: pointer;
+    color: #aaa;
+}
+
+.menu-box {
+    position: absolute;
+    top: 40px;
+    right: 15px;
+    background: #222;
+    padding: 10px;
+    border-radius: 8px;
+    display: none;
+    box-shadow: var(--shadow);
+}
+.menu-box button {
+    width: 100%;
+    background: #333;
+    color: var(--text);
+    border: none;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+/* BUTTONS */
+.controls {
+    display: flex;
+    gap: 12px;
+    margin-top: 14px;
+}
+.controls button {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    cursor: pointer;
+}
+.present-btn { background: var(--green); color: white; }
+.absent-btn { background: var(--red); color: white; }
+.undo-btn { background: var(--blue); color: white; }
+
+/* TOAST */
+#toast {
+    position: fixed;
+    bottom: 25px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #222;
+    padding: 12px 22px;
+    border-radius: 8px;
+    color: white;
+    display: none;
+    font-size: 15px;
+}
+
+.advice {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #aaa;
+}
+</style>
+</head>
+
+<body>
+
+<h2>Teacher Attendance Tracker</h2>
+<div id="total-students">Total Students: 0</div>
+
+<div id="add-container">
+    <input id="newStu" type="text" placeholder="Student Name">
+    <button onclick="addStudent()">Add</button>
+</div>
+
+<!-- SEARCH BAR -->
+<div id="search-box">
+    <input type="text" id="searchInput" placeholder="Search student..." oninput="render()">
+</div>
+
+<div id="cards-container"></div>
+
+<div id="toast"></div>
+
+<script>
+let students = JSON.parse(localStorage.getItem("stuData")) || [];
+students.forEach(s => { if (!s.history) s.history = []; });
+
+/* SORT STUDENTS ALPHABETICALLY */
+function sortStudents() {
+    students.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/* SAVE TO LOCAL STORAGE */
+function save() {
+    sortStudents();
+    localStorage.setItem("stuData", JSON.stringify(students));
+}
+
+/* TOAST MESSAGE */
+function toast(msg) {
+    const t = document.getElementById("toast");
+    t.innerText = msg;
+    t.style.display = "block";
+    setTimeout(() => t.style.display = "none", 1200);
+}
+
+/* ADD STUDENT */
+function addStudent() {
+    let name = document.getElementById("newStu").value.trim();
+    if (!name) return;
+
+    students.push({
+        id: Date.now(),
+        name,
+        attended: 0,
+        total: 0,
+        history: []
+    });
+
+    save();
+    render();
+    document.getElementById("newStu").value = "";
+}
+
+/* DELETE STUDENT */
+function deleteStudent(i) {
+    if (confirm("Delete this student?")) {
+        students.splice(i, 1);
+        save();
+        render();
+    }
+}
+
+function toggleMenu(i) {
+    const box = document.getElementById(`menu-${i}`);
+    box.style.display = (box.style.display === "block") ? "none" : "block";
+}
+
+/* MARK PRESENT */
+function markPresent(i) {
+    students[i].history.push({
+        attended: students[i].attended,
+        total: students[i].total
+    });
+
+    students[i].attended++;
+    students[i].total++;
+
+    save();
+    render();
+}
+
+/* MARK ABSENT */
+function markAbsent(i) {
+    students[i].history.push({
+        attended: students[i].attended,
+        total: students[i].total
+    });
+
+    students[i].total++;
+
+    save();
+    render();
+}
+
+/* UNDO LAST ACTION */
+function undo(i) {
+    if (students[i].history.length === 0) {
+        toast("Nothing to undo");
+        return;
+    }
+
+    const prev = students[i].history.pop();
+    students[i].attended = prev.attended;
+    students[i].total = prev.total;
+
+    save();
+    render();
+}
+
+/* SIMPLE ADVICE */
+function getAdvice(stu) {
+    if (stu.total === 0) return "No data yet";
+
+    const percent = (stu.attended / stu.total) * 100;
+
+    if (percent >= 75) return "Attendance is Good";
+    return "Needs Improvement";
+}
+
+/* RENDER ALL STUDENT CARDS */
+function render() {
+    sortStudents();
+
+    // Update total students
+    document.getElementById("total-students").innerText = `Total Students: ${students.length}`;
+
+    let html = "";
+    const search = document.getElementById("searchInput").value.toLowerCase();
+
+    students.forEach((stu, i) => {
+        if (!stu.name.toLowerCase().includes(search)) return;
+
+        let pct = stu.total === 0 ? 0 : ((stu.attended / stu.total) * 100).toFixed(1);
+
+        html += `
+        <div class="card">
+
+            <div class="menu-btn" onclick="toggleMenu(${i})">⋮</div>
+            <div class="menu-box" id="menu-${i}">
+                <button onclick="deleteStudent(${i})">Delete</button>
+            </div>
+
+            <h3>${stu.name}</h3>
+            <p><b>Attendance:</b> ${stu.attended} / ${stu.total}</p>
+            <p><b>Percentage:</b> ${pct}%</p>
+            <div class="advice">${getAdvice(stu)}</div>
+
+            <div class="controls">
+                <button class="present-btn" onclick="markPresent(${i})">Present</button>
+                <button class="absent-btn" onclick="markAbsent(${i})">Absent</button>
+                <button class="undo-btn" onclick="undo(${i})">Undo</button>
+            </div>
+        </div>
+        `;
+    });
+
+    document.getElementById("cards-container").innerHTML = html;
+}
+
+render();
+</script>
+
+</body>
+</html>
